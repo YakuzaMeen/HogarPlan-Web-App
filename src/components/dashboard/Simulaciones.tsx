@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react'; // Importar useRef
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { TrashIcon, EyeIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react'; // Importar FileDownIcon
+import { TrashIcon, EyeIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react';
 import { Input } from '../ui/input';
 import { SimulacionType } from '../../App';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import html2pdf from 'html2pdf.js'; // Importar html2pdf
+import html2pdf from 'html2pdf.js';
 
 interface SimulacionesProps {
   selectedSimulacion: SimulacionType | null;
@@ -22,7 +22,7 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
   const [isLoading, setIsLoading] = useState(true);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const contentRef = useRef<HTMLDivElement>(null); // Crear la referencia
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const fetchSimulaciones = async () => {
     setIsLoading(true);
@@ -129,7 +129,7 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
             <div className="relative mb-4">
               <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar simulaciones por cliente o proyecto..."
+                placeholder="Buscar simulaciones..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -152,7 +152,7 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                      <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. Se eliminará permanentemente la simulación.</AlertDialogDescription></AlertDialogHeader>
+                      <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription></AlertDialogHeader>
                       <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(sim._id!)}>Eliminar</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -174,107 +174,64 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
           <CardContent>
             {selectedSimulacion ? (
               <div className="space-y-6">
-                <div className="flex justify-end gap-2 mb-4">
-                  <Button variant="outline" size="sm" onClick={handleExportToExcel}>
-                    <FileTextIcon className="mr-2 h-4 w-4" /> Exportar a Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExportToPDF}>
-                    <FileDownIcon className="mr-2 h-4 w-4" /> Exportar a PDF
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => onEditSimulacion(selectedSimulacion)}>
-                    <PencilIcon className="mr-2 h-4 w-4" /> Editar Simulación
-                  </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={handleExportToExcel}><FileTextIcon className="mr-2 h-4 w-4" />Excel</Button>
+                  <Button variant="outline" size="sm" onClick={handleExportToPDF}><FileDownIcon className="mr-2 h-4 w-4" />PDF</Button>
+                  <Button variant="outline" size="sm" onClick={() => onEditSimulacion(selectedSimulacion)}><PencilIcon className="mr-2 h-4 w-4" />Editar</Button>
                 </div>
 
-                {/* Contenido a exportar a PDF */}
-                <div ref={contentRef} className="p-4 bg-background"> {/* Añadir la referencia aquí */}
-                  <h3 className="text-lg font-semibold">Resultados Clave</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">Cuota Promedio</p>
-                      <p className="text-2xl font-bold">{formatCurrency(selectedSimulacion.cuotaMensual, selectedSimulacion.moneda)}</p>
-                    </div>
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">TCEA</p>
-                      <p className="text-2xl font-bold">{formatPercentage(selectedSimulacion.tcea)}</p>
-                    </div>
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">TIR (Anual)</p>
-                      <p className="text-2xl font-bold">{formatPercentage(selectedSimulacion.tir)}</p>
-                    </div>
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">VAN</p>
-                      <p className="text-2xl font-bold">{formatCurrency(selectedSimulacion.van, selectedSimulacion.moneda)}</p>
-                    </div>
-                  </div>
+                <div ref={contentRef} className="p-4 bg-background">
+                  <Card>
+                    <CardHeader><CardTitle>Resultados Clave</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                      <div className="p-4 bg-muted rounded-lg flex flex-col justify-center"><p className="text-sm text-muted-foreground">Cuota Promedio</p><p className="text-xl font-bold truncate">{formatCurrency(selectedSimulacion.cuotaMensual, selectedSimulacion.moneda)}</p></div>
+                      <div className="p-4 bg-muted rounded-lg flex flex-col justify-center"><p className="text-sm text-muted-foreground">TCEA</p><p className="text-xl font-bold">{formatPercentage(selectedSimulacion.tcea)}</p></div>
+                      <div className="p-4 bg-muted rounded-lg flex flex-col justify-center"><p className="text-sm text-muted-foreground">TIR (Anual)</p><p className="text-xl font-bold">{formatPercentage(selectedSimulacion.tir)}</p></div>
+                      <div className="p-4 bg-muted rounded-lg flex flex-col justify-center"><p className="text-sm text-muted-foreground">VAN</p><p className="text-xl font-bold truncate">{formatCurrency(selectedSimulacion.van, selectedSimulacion.moneda)}</p></div>
+                    </CardContent>
+                  </Card>
 
-                  {/* Gráfico de Saldo e Intereses */}
-                  <h3 className="text-lg font-semibold mt-6">Evolución del Préstamo</h3>
-                  <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={selectedSimulacion.planDePagos.map(p => ({
-                          name: `Cuota ${p.numeroCuota}`,
-                          'Saldo Final': p.saldoFinal,
-                          'Interés Pagado': p.interes,
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" interval={selectedSimulacion.planDePagos.length > 20 ? Math.floor(selectedSimulacion.planDePagos.length / 10) : 0} />
-                        <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-                        <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-                        <Tooltip formatter={(value: number) => formatCurrency(value, selectedSimulacion.moneda)} />
-                        <Legend />
-                        <Line yAxisId="left" type="monotone" dataKey="Saldo Final" stroke="#8884d8" activeDot={{ r: 8 }} />
-                        <Line yAxisId="right" type="monotone" dataKey="Interés Pagado" stroke="#82ca9d" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <Card className="mt-6">
+                    <CardHeader><CardTitle>Parámetros de la Simulación</CardTitle></CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                      <p><strong>Cliente:</strong> {selectedSimulacion.cliente.nombres} {selectedSimulacion.cliente.apellidos}</p>
+                      <p><strong>Inmueble:</strong> {selectedSimulacion.inmueble.nombreProyecto}</p>
+                      <p><strong>Valor Inmueble:</strong> {formatCurrency(selectedSimulacion.valorInmueble, selectedSimulacion.moneda)}</p>
+                      <p><strong>Monto Préstamo:</strong> {formatCurrency(selectedSimulacion.montoPrestamo, selectedSimulacion.moneda)}</p>
+                      <p><strong>Plazo:</strong> {selectedSimulacion.plazoAnios} años</p>
+                      <p><strong>Tasa de Interés:</strong> {formatPercentage(selectedSimulacion.tasaInteresAnual)} ({selectedSimulacion.tipoTasa})</p>
+                      {selectedSimulacion.tipoTasa === 'Nominal' && <p><strong>Capitalización:</strong> {selectedSimulacion.capitalizacion}</p>}
+                      <p><strong>Seguro Desgravamen:</strong> {formatPercentage(selectedSimulacion.seguroDesgravamen)} (mensual)</p>
+                      <p><strong>Seguro Inmueble:</strong> {formatPercentage(selectedSimulacion.seguroInmueble)} (anual)</p>
+                      <p><strong>Gracia Total:</strong> {selectedSimulacion.periodoGraciaTotalMeses} meses</p>
+                      <p><strong>Gracia Parcial:</strong> {selectedSimulacion.periodoGraciaParcialMeses} meses</p>
+                      <p><strong>Aplica Bono:</strong> {selectedSimulacion.aplicaBonoTechoPropio ? 'Sí' : 'No'}</p>
+                      {selectedSimulacion.aplicaBonoTechoPropio && <p><strong>Valor Bono:</strong> {formatCurrency(selectedSimulacion.valorBono, selectedSimulacion.moneda)}</p>}
+                    </CardContent>
+                  </Card>
 
-
-                  <h3 className="text-lg font-semibold mt-6">Parámetros de la Simulación</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                    <p><strong>Cliente:</strong> {selectedSimulacion.cliente.nombres} {selectedSimulacion.cliente.apellidos}</p>
-                    <p><strong>Inmueble:</strong> {selectedSimulacion.inmueble.nombreProyecto}</p>
-                    <p><strong>Valor Inmueble:</strong> {formatCurrency(selectedSimulacion.valorInmueble, selectedSimulacion.moneda)}</p>
-                    <p><strong>Monto Préstamo:</strong> {formatCurrency(selectedSimulacion.montoPrestamo, selectedSimulacion.moneda)}</p>
-                    <p><strong>Plazo:</strong> {selectedSimulacion.plazoAnios} años</p>
-                    <p><strong>Tasa de Interés:</strong> {formatPercentage(selectedSimulacion.tasaInteresAnual)} ({selectedSimulacion.tipoTasa})</p>
-                    {selectedSimulacion.tipoTasa === 'Nominal' && <p><strong>Capitalización:</strong> {selectedSimulacion.capitalizacion}</p>}
-                    <p><strong>Seguro Desgravamen:</strong> {formatPercentage(selectedSimulacion.seguroDesgravamen)} (mensual)</p>
-                    <p><strong>Seguro Inmueble:</strong> {formatPercentage(selectedSimulacion.seguroInmueble)} (anual)</p>
-                    <p><strong>Gracia Total:</strong> {selectedSimulacion.periodoGraciaTotalMeses} meses</p>
-                    <p><strong>Gracia Parcial:</strong> {selectedSimulacion.periodoGraciaParcialMeses} meses</p>
-                    <p><strong>Aplica Bono:</strong> {selectedSimulacion.aplicaBonoTechoPropio ? 'Sí' : 'No'}</p>
-                    {selectedSimulacion.aplicaBonoTechoPropio && <p><strong>Valor Bono:</strong> {formatCurrency(selectedSimulacion.valorBono, selectedSimulacion.moneda)}</p>}
-                  </div>
-
-                  <h3 className="font-semibold pt-4">Plan de Pagos (Primeras 12 cuotas)</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="text-left text-muted-foreground"><th>#</th><th>Cuota</th><th>Interés</th><th>Amortización</th><th>Seguros</th><th>Saldo Final</th></tr></thead>
-                      <tbody>
-                        {selectedSimulacion.planDePagos.slice(0, 12).map((p: any) => (
-                          <tr key={p.numeroCuota} className="border-b">
-                            <td className="py-2">{p.numeroCuota}</td>
-                            <td>{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
-                            <td>{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
-                            <td>{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
-                            <td>{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
-                            <td>{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {selectedSimulacion.planDePagos.length > 12 && (
-                    <div className="text-center mt-4">
-                      <Button onClick={() => setIsPlanModalOpen(true)} variant="outline">
-                        <EyeIcon className="mr-2 h-4 w-4" /> Ver Plan de Pagos Completo
-                      </Button>
-                    </div>
-                  )}
+                  <Card className="mt-6">
+                    <CardHeader><CardTitle>Plan de Pagos (Primeras 12 cuotas)</CardTitle></CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="text-left text-muted-foreground">
+                          <th className="p-2">#</th><th className="p-2">Cuota</th><th className="p-2">Interés</th><th className="p-2">Amortización</th><th className="p-2">Seguros</th><th className="p-2">Saldo Final</th>
+                        </tr></thead>
+                        <tbody>
+                          {selectedSimulacion.planDePagos.slice(0, 12).map((p: any) => (
+                            <tr key={p.numeroCuota} className="border-b">
+                              <td className="p-2">{p.numeroCuota}</td>
+                              <td className="p-2">{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
+                              <td className="p-2">{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
+                              <td className="p-2">{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
+                              <td className="p-2">{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
+                              <td className="p-2">{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             ) : <p>No hay detalles para mostrar.</p>}
@@ -283,29 +240,29 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
       </div>
 
       <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Plan de Pagos Completo</DialogTitle>
             <DialogDescription>
               Detalle de todas las cuotas para la simulación de {selectedSimulacion?.cliente.nombres} {selectedSimulacion?.cliente.apellidos}.
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-sm">
+          <div className="overflow-y-auto flex-grow">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="text-left text-muted-foreground">
-                  <th>#</th><th>Cuota</th><th>Interés</th><th>Amortización</th><th>Seguros</th><th>Saldo Final</th>
+                  <th className="p-2 w-1/12">#</th><th className="p-2 w-2/12">Cuota</th><th className="p-2 w-2/12">Interés</th><th className="p-2 w-2/12">Amortización</th><th className="p-2 w-2/12">Seguros</th><th className="p-2 w-3/12">Saldo Final</th>
                 </tr>
               </thead>
               <tbody>
                 {selectedSimulacion?.planDePagos.map((p: any) => (
                   <tr key={p.numeroCuota} className="border-b">
-                    <td className="py-2">{p.numeroCuota}</td>
-                    <td>{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
-                    <td>{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
-                    <td>{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
-                    <td>{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
-                    <td>{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
+                    <td className="p-2">{p.numeroCuota}</td>
+                    <td className="p-2">{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
+                    <td className="p-2">{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
+                    <td className="p-2">{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
+                    <td className="p-2">{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
+                    <td className="p-2">{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
                   </tr>
                 ))}
               </tbody>

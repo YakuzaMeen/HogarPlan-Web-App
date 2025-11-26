@@ -9,8 +9,9 @@ import { NuevaSimulacion } from "./components/dashboard/NuevaSimulacion";
 import { Simulaciones } from "./components/dashboard/Simulaciones";
 import { Reportes } from "./components/dashboard/Reportes";
 import { TransparenciaSBS } from "./components/dashboard/TransparenciaSBS";
-import { Profile } from "./components/dashboard/Profile"; // Importar Profile
+import { Profile } from "./components/dashboard/Profile";
 import { Placeholder } from "./components/dashboard/Placeholder";
+import { Toaster } from "sonner"; // Importar Toaster
 
 export type SimulacionType = { 
   _id: string; 
@@ -88,31 +89,34 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex">
-      <div className="hidden lg:block">
-        <SidebarNav collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} activeSection={activeSection} onSectionChange={setActiveSection} />
+    <>
+      <div className="h-screen flex">
+        <div className="hidden lg:block">
+          <SidebarNav collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} activeSection={activeSection} onSectionChange={setActiveSection} />
+        </div>
+        {mobileMenuOpen && (
+          <>
+            <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+            <div className="fixed left-0 top-0 h-full z-50 lg:hidden">
+              <SidebarNav collapsed={false} onToggleCollapse={() => setMobileMenuOpen(false)} activeSection={activeSection} onSectionChange={(section) => { setActiveSection(section); setMobileMenuOpen(false); }} />
+            </div>
+          </>
+        )}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Topbar onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} currentSection={activeSection} onLogout={handleLogout} />
+          <main className="flex-1 overflow-y-auto p-6">
+            {activeSection === "dashboard" && <DashboardOverview />}
+            {activeSection === "clientes" && <Clientes />}
+            {activeSection === "inmuebles" && <Inmuebles />}
+            {activeSection === "nueva-simulacion" && <NuevaSimulacion onSimulacionCreated={handleSimulacionCreated} simulacionToEdit={simulacionToEdit} />}
+            {activeSection === "simulaciones" && <Simulaciones selectedSimulacion={selectedSimulacion} setSelectedSimulacion={setSelectedSimulacion} onEditSimulacion={handleEditSimulacion} />}
+            {activeSection === "reportes" && <Reportes />}
+            {activeSection === "transparencia" && <TransparenciaSBS />}
+            {activeSection === "configuracion" && <Profile />}
+          </main>
+        </div>
       </div>
-      {mobileMenuOpen && (
-        <>
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
-          <div className="fixed left-0 top-0 h-full z-50 lg:hidden">
-            <SidebarNav collapsed={false} onToggleCollapse={() => setMobileMenuOpen(false)} activeSection={activeSection} onSectionChange={(section) => { setActiveSection(section); setMobileMenuOpen(false); }} />
-          </div>
-        </>
-      )}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} currentSection={activeSection} onLogout={handleLogout} />
-        <main className="flex-1 overflow-y-auto p-6">
-          {activeSection === "dashboard" && <DashboardOverview />}
-          {activeSection === "clientes" && <Clientes />}
-          {activeSection === "inmuebles" && <Inmuebles />}
-          {activeSection === "nueva-simulacion" && <NuevaSimulacion onSimulacionCreated={handleSimulacionCreated} simulacionToEdit={simulacionToEdit} />}
-          {activeSection === "simulaciones" && <Simulaciones selectedSimulacion={selectedSimulacion} setSelectedSimulacion={setSelectedSimulacion} onEditSimulacion={handleEditSimulacion} />}
-          {activeSection === "reportes" && <Reportes />}
-          {activeSection === "transparencia" && <TransparenciaSBS />}
-          {activeSection === "configuracion" && <Profile />} {/* Renderizar Profile */}
-        </main>
-      </div>
-    </div>
+      <Toaster richColors />
+    </>
   );
 }
