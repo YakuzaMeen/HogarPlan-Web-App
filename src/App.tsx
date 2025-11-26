@@ -7,7 +7,9 @@ import { Clientes } from "./components/dashboard/Clientes";
 import { Inmuebles } from "./components/dashboard/Inmuebles";
 import { NuevaSimulacion } from "./components/dashboard/NuevaSimulacion";
 import { Simulaciones } from "./components/dashboard/Simulaciones";
-import { Reportes } from "./components/dashboard/Reportes"; // Importar Reportes
+import { Reportes } from "./components/dashboard/Reportes";
+import { TransparenciaSBS } from "./components/dashboard/TransparenciaSBS";
+import { Profile } from "./components/dashboard/Profile"; // Importar Profile
 import { Placeholder } from "./components/dashboard/Placeholder";
 
 export type SimulacionType = { 
@@ -106,9 +108,9 @@ export default function App() {
           {activeSection === "inmuebles" && <Inmuebles />}
           {activeSection === "nueva-simulacion" && <NuevaSimulacion onSimulacionCreated={handleSimulacionCreated} simulacionToEdit={simulacionToEdit} />}
           {activeSection === "simulaciones" && <Simulaciones selectedSimulacion={selectedSimulacion} setSelectedSimulacion={setSelectedSimulacion} onEditSimulacion={handleEditSimulacion} />}
-          {activeSection === "reportes" && <Reportes />} {/* Renderizar Reportes */}
-          {activeSection === "transparencia" && <Placeholder title="Transparencia SBS" />}
-          {activeSection === "configuracion" && <Placeholder title="Configuración" />}
+          {activeSection === "reportes" && <Reportes />}
+          {activeSection === "transparencia" && <TransparenciaSBS />}
+          {activeSection === "configuracion" && <Profile />} {/* Renderizar Profile */}
         </main>
       </div>
     </div>

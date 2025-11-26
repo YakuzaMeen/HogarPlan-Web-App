@@ -16,7 +16,9 @@ app.get('/', (req, res) => res.send('Backend API is running...'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/simulaciones', require('./routes/simulaciones'));
 app.use('/api/clientes', require('./routes/clientes'));
-app.use('/api/inmuebles', require('./routes/inmuebles')); // Nueva ruta
+app.use('/api/inmuebles', require('./routes/inmuebles'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/users', require('./routes/users')); // Nueva ruta para usuarios
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
