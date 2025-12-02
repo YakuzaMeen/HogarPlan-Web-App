@@ -13,10 +13,10 @@ import { Profile } from "./components/dashboard/Profile";
 import { Placeholder } from "./components/dashboard/Placeholder";
 import { Toaster } from "sonner"; // Importar Toaster
 
-export type SimulacionType = { 
-  _id: string; 
-  cliente: { _id: string; nombres: string; apellidos: string; };
-  inmueble: { _id: string; nombreProyecto: string; valor: number; moneda: string; };
+export type SimulacionType = {
+  id: number;
+  cliente: { id: number; nombres: string; apellidos: string; };
+  inmueble: { id: number; nombreProyecto: string; valor: number; moneda: string; valorInmueble: number; };
   montoPrestamo: number;
   plazoAnios: number;
   tipoTasa: 'Efectiva' | 'Nominal';
@@ -31,6 +31,7 @@ export type SimulacionType = {
   cuotaMensual: number;
   tcea: number;
   van: number;
+  valorInmueble: number;
   tir: number;
   planDePagos: any[];
   fechaCreacion: string;
@@ -75,8 +76,9 @@ export default function App() {
 
   const handleSimulacionCreated = (simulacion: SimulacionType) => {
     setSelectedSimulacion(simulacion);
-    setActiveSection("simulaciones");
     setSimulacionToEdit(null);
+    // Cambia a la sección de simulaciones para mostrar el resultado.
+    setActiveSection("simulaciones");
   };
 
   const handleEditSimulacion = (simulacion: SimulacionType) => {

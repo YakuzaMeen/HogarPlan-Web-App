@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from '../ui/switch';
 import { SimulacionType } from '../../App';
 
-type Cliente = { _id: string; nombres: string; apellidos: string; };
-type Inmueble = { _id: string; nombreProyecto: string; valor: number; moneda: string; };
+type Cliente = { id: number; nombres: string; apellidos: string; };
+type Inmueble = { id: number; nombreProyecto: string; valor: number; moneda: string; };
 
 interface NuevaSimulacionProps {
   onSimulacionCreated: (simulacion: SimulacionType) => void;
@@ -19,10 +19,10 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [inmuebles, setInmuebles] = useState<Inmueble[]>([]);
   
-  const [selectedCliente, setSelectedCliente] = useState('');
-  const [selectedInmueble, setSelectedInmueble] = useState('');
+  const [selectedCliente, setSelectedCliente] = useState<number | null>(null);
+  const [selectedInmueble, setSelectedInmueble] = useState<number | null>(null);
   
-  const [montoPrestamo, setMontoPrestamo] = useState(150000);
+  const [montoPrestamo, setMontoPrestamo] = useState<number | ''>(150000);
   const [plazoAnios, setPlazoAnios] = useState(20);
   const [tipoTasa, setTipoTasa] = useState('Efectiva');
   const [tasaInteresAnual, setTasaInteresAnual] = useState(9.5);
@@ -41,8 +41,8 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
   // Cargar datos iniciales para edición
   useEffect(() => {
     if (simulacionToEdit) {
-      setSelectedCliente(simulacionToEdit.cliente._id);
-      setSelectedInmueble(simulacionToEdit.inmueble._id);
+      setSelectedCliente(simulacionToEdit.cliente.id);
+      setSelectedInmueble(simulacionToEdit.inmueble.id);
       setMontoPrestamo(simulacionToEdit.montoPrestamo);
       setPlazoAnios(simulacionToEdit.plazoAnios);
       setTipoTasa(simulacionToEdit.tipoTasa);
@@ -56,8 +56,8 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       setValorBono(simulacionToEdit.valorBono);
     } else {
       // Resetear a valores por defecto si no hay simulación para editar
-      setSelectedCliente('');
-      setSelectedInmueble('');
+      setSelectedCliente(null);
+      setSelectedInmueble(null);
       setMontoPrestamo(150000);
       setPlazoAnios(20);
       setTipoTasa('Efectiva');
@@ -111,7 +111,7 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       valorBono,
     };
 
-    const url = simulacionToEdit ? `http://localhost:3001/api/simulaciones/${simulacionToEdit._id}` : 'http://localhost:3001/api/simulaciones';
+    const url = simulacionToEdit ? `http://localhost:3001/api/simulaciones/${simulacionToEdit.id}` : 'http://localhost:3001/api/simulaciones';
     const method = simulacionToEdit ? 'PUT' : 'POST';
 
     try {
@@ -137,15 +137,15 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       <CardHeader><CardTitle className="text-2xl">{simulacionToEdit ? 'Editar Simulación' : 'Crear Nueva Simulación'}</CardTitle></CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6 border-b pb-6">
-            <div><Label>Cliente</Label><Select onValueChange={setSelectedCliente} value={selectedCliente}><SelectTrigger><SelectValue placeholder="Seleccione un cliente..." /></SelectTrigger><SelectContent>{clientes.map(c => <SelectItem key={c._id} value={c._id}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select></div>
-            <div><Label>Inmueble</Label><Select onValueChange={setSelectedInmueble} value={selectedInmueble}><SelectTrigger><SelectValue placeholder="Seleccione un inmueble..." /></SelectTrigger><SelectContent>{inmuebles.map(i => <SelectItem key={i._id} value={i._id}>{i.nombreProyecto} - {i.moneda} {i.valor.toLocaleString()}</SelectItem>)}</SelectContent></Select></div>
+          <div className="grid md:grid-cols-2 gap-6 border-b pb-6">            
+            <div><Label>Cliente</Label><Select onValueChange={(value) => setSelectedCliente(Number(value))} value={selectedCliente?.toString() ?? undefined}><SelectTrigger><SelectValue placeholder="Seleccione un cliente..." /></SelectTrigger><SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.nombres} {c.apellidos}</SelectItem>)}</SelectContent></Select></div>
+            <div><Label>Inmueble</Label><Select onValueChange={(value) => setSelectedInmueble(Number(value))} value={selectedInmueble?.toString() ?? undefined}><SelectTrigger><SelectValue placeholder="Seleccione un inmueble..." /></SelectTrigger><SelectContent>{inmuebles.map(i => <SelectItem key={i.id} value={i.id.toString()}>{i.nombreProyecto} - {i.moneda} {i.valor.toLocaleString()}</SelectItem>)}</SelectContent></Select></div>
           </div>
           <h3 className="text-lg font-medium">Parámetros Financieros</h3>
           <div className="grid md:grid-cols-4 gap-6">
-            <div><Label htmlFor="montoPrestamo">Monto del Préstamo</Label><Input id="montoPrestamo" type="number" value={montoPrestamo} onChange={e => setMontoPrestamo(Number(e.target.value))} /></div>
+            <div><Label htmlFor="montoPrestamo">Monto del Préstamo</Label><Input id="montoPrestamo" type="number" value={montoPrestamo} onChange={e => setMontoPrestamo(e.target.value === '' ? '' : Number(e.target.value))} /></div>
             <div><Label htmlFor="plazoAnios">Plazo (Años)</Label><Input id="plazoAnios" type="number" value={plazoAnios} onChange={e => setPlazoAnios(Number(e.target.value))} /></div>
-            <div><Label>Tipo de Tasa</Label><Select onValueChange={setTipoTasa} value={tipoTasa}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Efectiva">Efectiva Anual (TEA)</SelectItem><SelectItem value="Nominal">Nominal Anual (TNA)</SelectItem></SelectContent></Select></div>
+            <div><Label>Tipo de Tasa</Label><Select onValueChange={setTipoTasa} value={tipoTasa}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem key="Efectiva" value="Efectiva">Efectiva Anual (TEA)</SelectItem><SelectItem key="Nominal" value="Nominal">Nominal Anual (TNA)</SelectItem></SelectContent></Select></div>
             <div><Label htmlFor="tasaInteresAnual">Tasa Interés Anual (%)</Label><Input id="tasaInteresAnual" type="number" step="0.01" value={tasaInteresAnual} onChange={e => setTasaInteresAnual(Number(e.target.value))} /></div>
           </div>
           <div className="grid md:grid-cols-4 gap-6 items-start">
@@ -153,14 +153,14 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
               <Select onValueChange={setCapitalizacion} value={capitalizacion} disabled={tipoTasa === 'Efectiva'}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Diaria">Diaria</SelectItem>
-                  <SelectItem value="Quincenal">Quincenal</SelectItem>
-                  <SelectItem value="Mensual">Mensual</SelectItem>
-                  <SelectItem value="Bimestral">Bimestral</SelectItem>
-                  <SelectItem value="Trimestral">Trimestral</SelectItem>
-                  <SelectItem value="Cuatrimestral">Cuatrimestral</SelectItem>
-                  <SelectItem value="Semestral">Semestral</SelectItem>
-                  <SelectItem value="Anual">Anual</SelectItem>
+                  <SelectItem key="Diaria" value="Diaria">Diaria</SelectItem>
+                  <SelectItem key="Quincenal" value="Quincenal">Quincenal</SelectItem>
+                  <SelectItem key="Mensual" value="Mensual">Mensual</SelectItem>
+                  <SelectItem key="Bimestral" value="Bimestral">Bimestral</SelectItem>
+                  <SelectItem key="Trimestral" value="Trimestral">Trimestral</SelectItem>
+                  <SelectItem key="Cuatrimestral" value="Cuatrimestral">Cuatrimestral</SelectItem>
+                  <SelectItem key="Semestral" value="Semestral">Semestral</SelectItem>
+                  <SelectItem key="Anual" value="Anual">Anual</SelectItem>
                 </SelectContent>
               </Select>
             </div>

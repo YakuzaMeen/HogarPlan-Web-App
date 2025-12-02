@@ -2,94 +2,53 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const prisma = require('../db');
 
-// @route   POST api/auth/register
-// @desc    Register a new user
-// @access  Public
 router.post('/register', async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    // 1. Verificar si el usuario ya existe
-    let user = await User.findOne({ email });
+    let user = await prisma.user.findUnique({ where: { email } });
     if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+      return res.status(400).json({ msg: 'El usuario ya existe' });
     }
-
-    // 2. Crear una nueva instancia de usuario
-    user = new User({
-      email,
-      password,
-    });
-
-    // 3. Encriptar la contraseña
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-
-    // 4. Guardar el usuario en la base de datos
-    await user.save();
-
-    // 5. Crear y devolver un token JWT
-    const payload = {
-      user: {
-        id: user.id,
+    const hashedPassword = await bcrypt.hash(password, salt);
+    user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
       },
-    };
-
-    jwt.sign(
-      payload,
-      'supersecretjwtkey', // ¡IMPORTANTE! Esto debería ser una variable de entorno
-      { expiresIn: 3600 }, // Expira en 1 hora
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
+    });
+    const payload = { user: { id: user.id } };
+    jwt.sign(payload, 'supersecretjwtkey', { expiresIn: 3600 }, (err, token) => {
+      if (err) throw err;
+      res.json({ token });
+    });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// @route   POST api/auth/login
-// @desc    Authenticate user & get token
-// @access  Public
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    // 1. Verificar si el usuario existe
-    let user = await User.findOne({ email });
+    let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ msg: 'Credenciales inválidas' });
     }
-
-    // 2. Comparar la contraseña ingresada con la encriptada
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ msg: 'Credenciales inválidas' });
     }
-
-    // 3. Crear y devolver un token JWT
-    const payload = {
-      user: {
-        id: user.id,
-      },
-    };
-
-    jwt.sign(
-      payload,
-      'supersecretjwtkey', // ¡IMPORTANTE! Esto debería ser una variable de entorno
-      { expiresIn: 3600 },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
+    const payload = { user: { id: user.id } };
+    jwt.sign(payload, 'supersecretjwtkey', { expiresIn: 3600 }, (err, token) => {
+      if (err) throw err;
+      res.json({ token });
+    });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 

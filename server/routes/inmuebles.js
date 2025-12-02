@@ -1,67 +1,89 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const Inmueble = require('../models/Inmueble');
+const prisma = require('../db');
 
-// POST api/inmuebles (Crear)
 router.post('/', auth, async (req, res) => {
   const { nombreProyecto, tipoInmueble, direccion, valor, moneda, areaMetrosCuadrados } = req.body;
   try {
-    const nuevoInmueble = new Inmueble({
-      nombreProyecto, tipoInmueble, direccion, valor, moneda, areaMetrosCuadrados,
-      creadoPor: req.user.id
+    const nuevoInmueble = await prisma.inmueble.create({
+      data: {
+        nombreProyecto,
+        tipoInmueble,
+        direccion,
+        valor,
+        moneda,
+        areaMetrosCuadrados,
+        creadoPorId: req.user.id,
+      },
     });
-    const inmueble = await nuevoInmueble.save();
-    res.json(inmueble);
+    res.json(nuevoInmueble);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// GET api/inmuebles (Leer)
 router.get('/', auth, async (req, res) => {
   try {
-    const inmuebles = await Inmueble.find({ creadoPor: req.user.id }).sort({ fechaCreacion: -1 });
+    const inmuebles = await prisma.inmueble.findMany({
+      where: { creadoPorId: req.user.id },
+      orderBy: { fechaCreacion: 'desc' },
+    });
     res.json(inmuebles);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// PUT api/inmuebles/:id (Actualizar)
 router.put('/:id', auth, async (req, res) => {
   const { nombreProyecto, tipoInmueble, direccion, valor, moneda, areaMetrosCuadrados } = req.body;
-  const inmuebleFields = { nombreProyecto, tipoInmueble, direccion, valor, moneda, areaMetrosCuadrados };
-
   try {
-    let inmueble = await Inmueble.findById(req.params.id);
-    if (!inmueble) return res.status(404).json({ msg: 'Inmueble no encontrado' });
-    if (inmueble.creadoPor.toString() !== req.user.id) {
+    const inmueble = await prisma.inmueble.findUnique({ where: { id: req.params.id } });
+    if (!inmueble || inmueble.creadoPorId !== req.user.id) {
       return res.status(401).json({ msg: 'No autorizado' });
     }
-    inmueble = await Inmueble.findByIdAndUpdate(req.params.id, { $set: inmuebleFields }, { new: true });
-    res.json(inmueble);
+    const inmuebleActualizado = await prisma.inmueble.update({
+      where: { id: req.params.id },
+      data: {
+        nombreProyecto,
+        tipoInmueble,
+        direccion,
+        valor,
+        moneda,
+        areaMetrosCuadrados,
+      },
+    });
+    res.json(inmuebleActualizado);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// DELETE api/inmuebles/:id (Eliminar)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    let inmueble = await Inmueble.findById(req.params.id);
-    if (!inmueble) return res.status(404).json({ msg: 'Inmueble no encontrado' });
-    if (inmueble.creadoPor.toString() !== req.user.id) {
+    const id = parseInt(req.params.id);
+
+    const inmueble = await prisma.inmueble.findUnique({ where: { id } });
+
+    if (!inmueble) {
+      return res.status(404).json({ msg: 'Inmueble no encontrado' });
+    }
+
+    if (inmueble.creadoPorId !== req.user.id) {
       return res.status(401).json({ msg: 'No autorizado' });
     }
-    await Inmueble.findByIdAndDelete(req.params.id);
+
+
+    await prisma.simulacion.deleteMany({ where: { inmuebleId: id } });
+
+    await prisma.inmueble.delete({ where: { id } });
     res.json({ msg: 'Inmueble eliminado' });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 

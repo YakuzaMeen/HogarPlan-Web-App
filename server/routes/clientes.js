@@ -1,67 +1,93 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const Cliente = require('../models/Cliente');
+const prisma = require('../db');
 
-// POST api/clientes (Crear)
 router.post('/', auth, async (req, res) => {
   const { nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual } = req.body;
   try {
-    const nuevoCliente = new Cliente({
-      nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual,
-      creadoPor: req.user.id
+    const nuevoCliente = await prisma.cliente.create({
+      data: {
+        nombres,
+        apellidos,
+        tipoDocumento,
+        numeroDocumento,
+        email,
+        telefono,
+        direccion,
+        ingresoMensual,
+        creadoPorId: req.user.id,
+      },
     });
-    const cliente = await nuevoCliente.save();
-    res.json(cliente);
+    res.json(nuevoCliente);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// GET api/clientes (Leer)
 router.get('/', auth, async (req, res) => {
   try {
-    const clientes = await Cliente.find({ creadoPor: req.user.id }).sort({ fechaCreacion: -1 });
+    const clientes = await prisma.cliente.findMany({
+      where: { creadoPorId: req.user.id },
+      orderBy: { fechaCreacion: 'desc' },
+    });
     res.json(clientes);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// PUT api/clientes/:id (Actualizar)
 router.put('/:id', auth, async (req, res) => {
   const { nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual } = req.body;
-  const clienteFields = { nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual };
-
   try {
-    let cliente = await Cliente.findById(req.params.id);
-    if (!cliente) return res.status(404).json({ msg: 'Cliente no encontrado' });
-    if (cliente.creadoPor.toString() !== req.user.id) {
+    const cliente = await prisma.cliente.findUnique({ where: { id: req.params.id } });
+    if (!cliente || cliente.creadoPorId !== req.user.id) {
       return res.status(401).json({ msg: 'No autorizado' });
     }
-    cliente = await Cliente.findByIdAndUpdate(req.params.id, { $set: clienteFields }, { new: true });
-    res.json(cliente);
+    const clienteActualizado = await prisma.cliente.update({
+      where: { id: req.params.id },
+      data: {
+        nombres,
+        apellidos,
+        tipoDocumento,
+        numeroDocumento,
+        email,
+        telefono,
+        direccion,
+        ingresoMensual,
+      },
+    });
+    res.json(clienteActualizado);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 
-// DELETE api/clientes/:id (Eliminar)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    let cliente = await Cliente.findById(req.params.id);
-    if (!cliente) return res.status(404).json({ msg: 'Cliente no encontrado' });
-    if (cliente.creadoPor.toString() !== req.user.id) {
+    const id = parseInt(req.params.id);
+
+    const cliente = await prisma.cliente.findUnique({ where: { id } });
+
+    if (!cliente) {
+      return res.status(404).json({ msg: 'Cliente no encontrado' });
+    }
+
+    if (cliente.creadoPorId !== req.user.id) {
       return res.status(401).json({ msg: 'No autorizado' });
     }
-    await Cliente.findByIdAndDelete(req.params.id);
+
+
+    await prisma.simulacion.deleteMany({ where: { clienteId: id } });
+
+    await prisma.cliente.delete({ where: { id } });
     res.json({ msg: 'Cliente eliminado' });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Error del servidor' });
   }
 });
 

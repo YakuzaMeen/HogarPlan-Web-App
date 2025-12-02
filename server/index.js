@@ -1,9 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./db');
+const prisma = require('./db');
 
 // Conectar a la base de datos
-connectDB();
+//connectDB();
 
 const app = express();
 const port = 3001;

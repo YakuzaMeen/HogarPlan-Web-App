@@ -1,16 +1,12 @@
-const mongoose = require('mongoose');
+require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
 
-const connectDB = async () => {
-  try {
-    // Reemplaza esta URI si tu base de datos está en otro lugar
-    const mongoURI = 'mongodb://localhost:27017/hogarplan';
-    await mongoose.connect(mongoURI);
-    console.log('MongoDB connected successfully.');
-  } catch (error) {
-    console.error('Error connecting to MongoDB:', error.message);
-    // Salir del proceso con fallo si no se puede conectar
-    process.exit(1);
-  }
-};
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
-module.exports = connectDB;
+module.exports = prisma;
