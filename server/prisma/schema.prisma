@@ -107,12 +107,17 @@ model Simulacion {
   periodoGraciaParcialMeses Int?   @default(0)
   aplicaBonoTechoPropio   Boolean  @default(false)
   valorBono               Decimal? @default(0) @db.Decimal(12, 2)
+  costesNotariales       Decimal? @default(0) @db.Decimal(12, 2)
+  costesRegistrales      Decimal? @default(0) @db.Decimal(12, 2)
+  tasacion               Decimal? @default(0) @db.Decimal(12, 2)
+  portes                 Decimal? @default(0) @db.Decimal(12, 2)
+  cok                    Decimal? @default(5.0) @db.Decimal(5, 2)
 
   // Resultados Calculados
-  cuotaMensual            Decimal? @db.Decimal(12, 2)
-  tcea                    Float?
-  van                     Float?
-  tir                     Float?
+    cuotaMensual            Decimal? @db.Decimal(12, 2)
+    tcea                    Decimal? @db.Decimal(10, 6)
+    van                     Decimal? @db.Decimal(15, 2)
+    tir                     Decimal? @db.Decimal(10, 6)
 
   // Plan de Pagos (Guardado como JSON porque es una lista compleja)
   planDePagos             Json?

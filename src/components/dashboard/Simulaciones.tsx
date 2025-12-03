@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { TrashIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react'; // Importar toast
 import { toast } from "sonner";
 import { Input } from '../ui/input';
 import { SimulacionType } from '../../App';
@@ -11,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import html2pdf from 'html2pdf.js';
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrashIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react';
 
 interface SimulacionesProps {
   selectedSimulacion: SimulacionType | null;
@@ -22,12 +21,10 @@ interface SimulacionesProps {
 export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEditSimulacion }: SimulacionesProps) {
   const [simulaciones, setSimulaciones] = useState<SimulacionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
 
   const fetchSimulaciones = async () => {
-    setIsLoading(true);
     const token = sessionStorage.getItem('token');
     try {
       const response = await fetch('http://localhost:3001/api/simulaciones', {
@@ -84,15 +81,20 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
   const handleExportToExcel = () => {
     if (!selectedSimulacion) return;
 
+    // Mapeo de datos mejorado para que coincida con la nueva tabla
     const planDePagosData = selectedSimulacion.planDePagos.map(p => ({
       'N° Cuota': p.numeroCuota,
+      'P.G.': p.graceFlag,
       'Saldo Inicial': p.saldoInicial,
-      'Amortización': p.amortizacion,
       'Interés': p.interes,
+      'Amortización': p.amortizacion,
+      'Cuota (P+I)': p.cuotaFija,
       'Seguro Desgravamen': p.seguroDesgravamen,
       'Seguro Inmueble': p.seguroInmueble,
-      'Cuota Total': p.cuota,
+      'Portes': p.portes,
+      'Cuota Total': p.cuota,      
       'Saldo Final': p.saldoFinal,
+      'Flujo': p.flujo,
     }));
 
     const ws = XLSX.utils.json_to_sheet(planDePagosData);
@@ -121,7 +123,12 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
   const formatCurrency = (value: number, currency: string) => 
     new Intl.NumberFormat('es-PE', { style: 'currency', currency: currency === 'Soles' ? 'PEN' : 'USD' }).format(value);
   
-  const formatPercentage = (value: number) => `${value.toFixed(2)}%`;
+  const formatPercentage = (value: number | null | undefined) => {
+      if (typeof value !== 'number' || isNaN(value)) {
+        return '0.00%'; // Muestra un valor por defecto si el dato no es un número válido
+      }
+      return `${value.toFixed(2)}%`;
+  };
   
   const filteredSimulaciones = simulaciones.filter(sim => 
     sim.cliente.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -295,32 +302,43 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
                   </div>
 
                   {/* Table Card */}
-                  <Card className="overflow-hidden border shadow-sm">
-                    <CardHeader className="bg-muted/5 py-4 px-6 flex flex-row items-center justify-between border-b">
-                        <CardTitle className="text-base font-medium">Plan de Pagos (Proyección 12 meses)</CardTitle>
-                        <Button variant="ghost" size="sm" onClick={() => setIsPlanModalOpen(true)} className="text-primary hover:text-primary/80 hover:bg-primary/5 p-0 h-auto font-normal text-xs">Ver proyección completa &rarr;</Button>
+                   <Card className="border shadow-sm flex flex-col" style={{ height: 'calc(100vh - 450px)', minHeight: '400px' }}>
+                    <CardHeader className="bg-muted/5 py-4 px-6 border-b shrink-0">
+                     <CardTitle className="text-base font-medium">Plan de Pagos Completo</CardTitle>
                     </CardHeader>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto flex-grow">
                       <table className="w-full text-sm">
-                        <thead className="bg-muted/20 text-xs uppercase tracking-wider">
-                          <tr className="text-muted-foreground/70 border-b">
-                            <th className="px-6 py-3 text-left font-semibold">#</th>
-                            <th className="px-6 py-3 text-right font-semibold">Cuota</th>
-                            <th className="px-6 py-3 text-right font-semibold">Interés</th>
-                            <th className="px-6 py-3 text-right font-semibold">Amortización</th>
-                            <th className="px-6 py-3 text-right font-semibold">Seguros</th>
-                            <th className="px-6 py-3 text-right font-semibold">Saldo Final</th>
+                        <thead className="sticky top-0 bg-background shadow-sm z-10">
+                         <tr className="text-xs uppercase tracking-wider text-muted-foreground border-b">
+                         <th className="px-4 py-2 text-center font-semibold">#</th>
+                         <th className="px-4 py-2 text-center font-semibold">P.G.</th>
+                         <th className="px-4 py-2 text-right font-semibold">Saldo Inicial</th>
+                         <th className="px-4 py-2 text-right font-semibold">Interés</th>
+                         <th className="px-4 py-2 text-right font-semibold">Amort.</th>
+                          <th className="px-4 py-2 text-right font-semibold">Cuota (P+I)</th>
+                          <th className="px-4 py-2 text-right font-semibold">Seg. Desgr.</th>
+                          <th className="px-4 py-2 text-right font-semibold">Seg. Riesgo</th>
+                           <th className="px-4 py-2 text-right font-semibold">Portes</th>
+                           <th className="px-4 py-2 text-right font-semibold">Cuota Total</th>
+                           <th className="px-4 py-2 text-right font-semibold">Saldo Final</th>
+                            <th className="px-4 py-2 text-right font-semibold">Flujo</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {selectedSimulacion.planDePagos.slice(0, 12).map((p: any) => (
+                          {selectedSimulacion.planDePagos.map((p: any) => (
                             <tr key={p.numeroCuota} className="hover:bg-muted/30 transition-colors">
-                              <td className="px-6 py-3 text-muted-foreground font-mono text-xs">{p.numeroCuota}</td>
-                              <td className="px-6 py-3 text-right font-medium text-foreground">{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
-                              <td className="px-6 py-3 text-right text-muted-foreground">{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
-                              <td className="px-6 py-3 text-right text-muted-foreground">{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
-                              <td className="px-6 py-3 text-right text-muted-foreground">{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
-                              <td className="px-6 py-3 text-right font-medium text-foreground/80">{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-center text-muted-foreground font-mono text-xs">{p.numeroCuota}</td>
+                              <td className="px-4 py-2 text-center font-bold text-primary/80">{p.graceFlag}</td>
+                              <td className="px-4 py-2 text-right">{formatCurrency(p.saldoInicial, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right font-medium">{formatCurrency(p.cuotaFija, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(p.seguroDesgravamen, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(p.seguroInmueble, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(p.portes, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right font-bold text-foreground">{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right font-medium text-foreground/80">{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
+                              <td className="px-4 py-2 text-right text-red-500/80">({formatCurrency(Math.abs(p.flujo), selectedSimulacion.moneda)})</td>
                             </tr>
                           ))}
                         </tbody>
@@ -341,44 +359,6 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
           </CardContent>
          </Card>
       </div>
-
-      {/* Full Plan Modal */}
-      <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle>Plan de Pagos Completo</DialogTitle>
-            <DialogDescription>
-              Detalle de cuotas para {selectedSimulacion?.cliente.nombres} {selectedSimulacion?.cliente.apellidos}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="overflow-y-auto flex-grow p-0">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background shadow-sm z-10">
-                <tr className="text-xs uppercase tracking-wider text-muted-foreground border-b">
-                  <th className="px-6 py-3 text-left bg-muted/10">#</th>
-                  <th className="px-6 py-3 text-right bg-muted/10">Cuota</th>
-                  <th className="px-6 py-3 text-right bg-muted/10">Interés</th>
-                  <th className="px-6 py-3 text-right bg-muted/10">Amortización</th>
-                  <th className="px-6 py-3 text-right bg-muted/10">Seguros</th>
-                  <th className="px-6 py-3 text-right bg-muted/10">Saldo Final</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {selectedSimulacion?.planDePagos.map((p: any) => (
-                  <tr key={p.numeroCuota} className="hover:bg-muted/30">
-                    <td className="px-6 py-2 text-muted-foreground font-mono text-xs">{p.numeroCuota}</td>
-                    <td className="px-6 py-2 text-right font-medium">{formatCurrency(p.cuota, selectedSimulacion.moneda)}</td>
-                    <td className="px-6 py-2 text-right text-muted-foreground">{formatCurrency(p.interes, selectedSimulacion.moneda)}</td>
-                    <td className="px-6 py-2 text-right text-muted-foreground">{formatCurrency(p.amortizacion, selectedSimulacion.moneda)}</td>
-                    <td className="px-6 py-2 text-right text-muted-foreground">{formatCurrency(p.seguroDesgravamen + p.seguroInmueble, selectedSimulacion.moneda)}</td>
-                    <td className="px-6 py-2 text-right font-medium text-muted-foreground">{formatCurrency(p.saldoFinal, selectedSimulacion.moneda)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
   
   const [montoPrestamo, setMontoPrestamo] = useState<number | ''>(150000);
   const [plazoAnios, setPlazoAnios] = useState(20);
-  const [tipoTasa, setTipoTasa] = useState('Efectiva');
+  const [tipoTasa, setTipoTasa] = useState('TEA');
   const [tasaInteresAnual, setTasaInteresAnual] = useState(9.5);
   const [capitalizacion, setCapitalizacion] = useState('Mensual'); // Nuevo estado para capitalización
   const [seguroDesgravamen, setSeguroDesgravamen] = useState(0.028);
@@ -34,6 +34,13 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
   const [periodoGraciaParcialMeses, setPeriodoGraciaParcialMeses] = useState(0);
   const [aplicaBonoTechoPropio, setAplicaBonoTechoPropio] = useState(false);
   const [valorBono, setValorBono] = useState(43300);
+
+ // Nuevos campos de costos y COK
+   const [costesNotariales, setCostesNotariales] = useState(0);
+   const [costesRegistrales, setCostesRegistrales] = useState(0);
+   const [tasacion, setTasacion] = useState(0);
+   const [portes, setPortes] = useState(0);
+   const [cok, setCok] = useState(5.0); // Tasa de descuento (Cok) en %
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +52,7 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       setSelectedInmueble(simulacionToEdit.inmueble.id);
       setMontoPrestamo(simulacionToEdit.montoPrestamo);
       setPlazoAnios(simulacionToEdit.plazoAnios);
-      setTipoTasa(simulacionToEdit.tipoTasa);
+      setTipoTasa(simulacionToEdit.tipoTasa || 'TEA');
       setTasaInteresAnual(simulacionToEdit.tasaInteresAnual);
       setCapitalizacion(simulacionToEdit.capitalizacion || 'Mensual'); // Cargar capitalización
       setSeguroDesgravamen(simulacionToEdit.seguroDesgravamen);
@@ -54,13 +61,18 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       setPeriodoGraciaParcialMeses(simulacionToEdit.periodoGraciaParcialMeses);
       setAplicaBonoTechoPropio(simulacionToEdit.aplicaBonoTechoPropio);
       setValorBono(simulacionToEdit.valorBono);
+      setCostesNotariales(simulacionToEdit.costesNotariales || 0);
+      setCostesRegistrales(simulacionToEdit.costesRegistrales || 0);
+      setTasacion(simulacionToEdit.tasacion || 0);
+      setPortes(simulacionToEdit.portes || 0);
+      setCok(simulacionToEdit.cok || 5.0);
     } else {
       // Resetear a valores por defecto si no hay simulación para editar
       setSelectedCliente(null);
       setSelectedInmueble(null);
       setMontoPrestamo(150000);
       setPlazoAnios(20);
-      setTipoTasa('Efectiva');
+      setTipoTasa('TEA');
       setTasaInteresAnual(9.5);
       setCapitalizacion('Mensual'); // Resetear capitalización
       setSeguroDesgravamen(0.028);
@@ -69,6 +81,11 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       setPeriodoGraciaParcialMeses(0);
       setAplicaBonoTechoPropio(false);
       setValorBono(43300);
+      setCostesNotariales(0);
+      setCostesRegistrales(0);
+      setTasacion(0);
+      setPortes(0);
+      setCok(5.0);
     }
   }, [simulacionToEdit]);
 
@@ -109,6 +126,11 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       periodoGraciaParcialMeses,
       aplicaBonoTechoPropio,
       valorBono,
+      costesNotariales,
+      costesRegistrales,
+      tasacion,
+      portes,
+      cok,
     };
 
     const url = simulacionToEdit ? `http://localhost:3001/api/simulaciones/${simulacionToEdit.id}` : 'http://localhost:3001/api/simulaciones';
@@ -145,12 +167,29 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
           <div className="grid md:grid-cols-4 gap-6">
             <div><Label htmlFor="montoPrestamo">Monto del Préstamo</Label><Input id="montoPrestamo" type="number" value={montoPrestamo} onChange={e => setMontoPrestamo(e.target.value === '' ? '' : Number(e.target.value))} /></div>
             <div><Label htmlFor="plazoAnios">Plazo (Años)</Label><Input id="plazoAnios" type="number" value={plazoAnios} onChange={e => setPlazoAnios(Number(e.target.value))} /></div>
-            <div><Label>Tipo de Tasa</Label><Select onValueChange={setTipoTasa} value={tipoTasa}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem key="Efectiva" value="Efectiva">Efectiva Anual (TEA)</SelectItem><SelectItem key="Nominal" value="Nominal">Nominal Anual (TNA)</SelectItem></SelectContent></Select></div>
+            <div>
+                           <Label>Tipo de Tasa</Label>
+                           <Select onValueChange={setTipoTasa} value={tipoTasa}>
+                             <SelectTrigger><SelectValue /></SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="TEA">Tasa Efectiva Anual (TEA)</SelectItem>
+                               <SelectItem value="TES">Tasa Efectiva Semestral (TES)</SelectItem>
+                               <SelectItem value="TET">Tasa Efectiva Trimestral (TET)</SelectItem>
+                               <SelectItem value="TEB">Tasa Efectiva Bimestral (TEB)</SelectItem>
+                               <SelectItem value="TEM">Tasa Efectiva Mensual (TEM)</SelectItem>
+                               <SelectItem value="TNA">Tasa Nominal Anual (TNA)</SelectItem>
+                               <SelectItem value="TNS">Tasa Nominal Semestral (TNS)</SelectItem>
+                               <SelectItem value="TNT">Tasa Nominal Trimestral (TNT)</SelectItem>
+                               <SelectItem value="TNB">Tasa Nominal Bimestral (TNB)</SelectItem>
+                               <SelectItem value="TNM">Tasa Nominal Mensual (TNM)</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
             <div><Label htmlFor="tasaInteresAnual">Tasa Interés Anual (%)</Label><Input id="tasaInteresAnual" type="number" step="0.01" value={tasaInteresAnual} onChange={e => setTasaInteresAnual(Number(e.target.value))} /></div>
           </div>
           <div className="grid md:grid-cols-4 gap-6 items-start">
             <div><Label>Capitalización</Label>
-              <Select onValueChange={setCapitalizacion} value={capitalizacion} disabled={tipoTasa === 'Efectiva'}>
+               <Select onValueChange={setCapitalizacion} value={capitalizacion} disabled={!tipoTasa.startsWith('TN')}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem key="Diaria" value="Diaria">Diaria</SelectItem>
@@ -168,6 +207,19 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
             <div><Label htmlFor="seguroInmueble">Seg. Inmueble (% anual)</Label><Input id="seguroInmueble" type="number" step="0.001" value={seguroInmueble} onChange={e => setSeguroInmueble(Number(e.target.value))} /></div>
             <div><Label htmlFor="periodoGraciaTotalMeses">Gracia Total (meses)</Label><Input id="periodoGraciaTotalMeses" type="number" value={periodoGraciaTotalMeses} onChange={e => setPeriodoGraciaTotalMeses(Number(e.target.value))} /></div>
           </div>
+          <h3 className="text-lg font-medium">Costos y Gastos Adicionales</h3>
+            <div className="grid md:grid-cols-4 gap-6">
+            <div><Label htmlFor="costesNotariales">Costos Notariales</Label><Input id="costesNotariales" type="number" value={costesNotariales} onChange={e => setCostesNotariales(Number(e.target.value))} /></div>
+            <div><Label htmlFor="costesRegistrales">Costos Registrales</Label><Input id="costesRegistrales" type="number" value={costesRegistrales} onChange={e => setCostesRegistrales(Number(e.target.value))} /></div>
+            <div><Label htmlFor="tasacion">Tasación</Label><Input id="tasacion" type="number" value={tasacion} onChange={e => setTasacion(Number(e.target.value))} /></div>
+            <div><Label htmlFor="portes">Portes (mensual)</Label><Input id="portes" type="number" value={portes} onChange={e => setPortes(Number(e.target.value))} /></div>
+            </div>
+
+            <h3 className="text-lg font-medium">Parámetros de Evaluación</h3>
+            <div className="grid md:grid-cols-4 gap-6">
+            <div><Label htmlFor="cok">Tasa Descuento (COK) %</Label><Input id="cok" type="number" step="0.01" value={cok} onChange={e => setCok(Number(e.target.value))} /></div>
+            </div>
+
           <div className="grid md:grid-cols-2 gap-6 items-center">
             <div><Label htmlFor="periodoGraciaParcialMeses">Gracia Parcial (meses)</Label><Input id="periodoGraciaParcialMeses" type="number" value={periodoGraciaParcialMeses} onChange={e => setPeriodoGraciaParcialMeses(Number(e.target.value))} /></div>
             <div className="flex items-center space-x-2"><Switch id="aplicaBono" checked={aplicaBonoTechoPropio} onCheckedChange={setAplicaBonoTechoPropio} /><Label htmlFor="aplicaBono">Aplica a Bono (Techo Propio / BBP)</Label></div>
