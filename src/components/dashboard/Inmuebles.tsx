@@ -10,7 +10,7 @@
     import { toast } from "sonner";
 
     type Inmueble = {
-      id?: string;
+  id: number;
       nombreProyecto: string;
       tipoInmueble: 'Casa' | 'Departamento' | 'Terreno';
       direccion: string;
@@ -35,7 +35,6 @@
       const [editingInmueble, setEditingInmueble] = useState<Inmueble | null>(null);
       const [errors, setErrors] = useState<Record<string, string>>({});
       const [searchTerm, setSearchTerm] = useState('');
-      const [inmuebleToDelete, setInmuebleToDelete] = useState<string | null>(null);
 
       const fetchInmuebles = async () => {
         setIsLoading(true);
@@ -93,24 +92,32 @@
         }
       };
 
-      const confirmDelete = async () => {
-        if (!inmuebleToDelete) return;
-
+      const performDelete = async (inmuebleId: number) => {
         const token = sessionStorage.getItem('token');
         try {
-          const response = await fetch(`http://localhost:3001/api/inmuebles/${inmuebleToDelete}`, {
+          const response = await fetch(`http://localhost:3001/api/inmuebles/${inmuebleId}`, {
             method: 'DELETE',
             headers: { 'x-auth-token': token || '' },
           });
-          if(!response.ok) throw new Error("Error al eliminar");
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.msg || "Error al eliminar el inmueble.");
+          }
 
           fetchInmuebles();
           toast.success('Inmueble eliminado correctamente.');
-        } catch (err) {
-          toast.error('Error al eliminar el inmueble.');
-        } finally {
-          setInmuebleToDelete(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Ocurrió un error inesperado.');
         }
+      };
+
+      const handleDelete = (inmuebleId: number, nombreProyecto: string) => {
+        toast.error(`¿Seguro que quieres eliminar el proyecto "${nombreProyecto}"?`, {
+          description: 'Esta acción también eliminará sus simulaciones asociadas.',
+          action: { label: 'Eliminar', onClick: () => performDelete(inmuebleId) },
+          cancel: { label: 'Cancelar' },
+          duration: 10000,
+        });
       };
 
       const handleOpenModal = (inmueble: Inmueble | null) => {
@@ -180,7 +187,7 @@
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setInmuebleToDelete(inmueble.id!)}
+                            onClick={() => handleDelete(inmueble.id, inmueble.nombreProyecto)}
                           >
                             <TrashIcon className="h-4 w-4" />
                           </Button>
@@ -316,22 +323,7 @@
             </DialogContent>
           </Dialog>
 
-          <AlertDialog open={!!inmuebleToDelete} onOpenChange={(open) => !open && setInmuebleToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción eliminará permanentemente el inmueble.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setInmuebleToDelete(null)}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {/* Se eliminó el AlertDialog para usar una confirmación simple y evitar el congelamiento */}
         </div>
       );
     }

@@ -76,10 +76,13 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(401).json({ msg: 'No autorizado' });
     }
 
+    // Usar una transacción para asegurar que ambas operaciones (borrar simulaciones e inmueble)
+    // se completen con éxito, o ninguna lo haga.
+    await prisma.$transaction([
+      prisma.simulacion.deleteMany({ where: { inmuebleId: id } }),
+      prisma.inmueble.delete({ where: { id } })
+    ]);
 
-    await prisma.simulacion.deleteMany({ where: { inmuebleId: id } });
-
-    await prisma.inmueble.delete({ where: { id } });
     res.json({ msg: 'Inmueble eliminado' });
   } catch (err) {
     console.error(err.message);

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 import { Button } from "../ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { TrashIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react';
+import { TrashIcon, PencilIcon, SearchIcon, FileTextIcon, FileDownIcon } from 'lucide-react'; // Importar toast
+import { toast } from "sonner";
 import { Input } from '../ui/input';
 import { SimulacionType } from '../../App';
 import * as XLSX from 'xlsx';
@@ -55,7 +56,7 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
     }
   }, [selectedSimulacion, simulaciones]);
 
-  const handleDelete = async (id: string) => {
+  const performDelete = async (id: number) => {
     const token = sessionStorage.getItem('token');
     try {
       const response = await fetch(`http://localhost:3001/api/simulaciones/${id}`, {
@@ -66,9 +67,18 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
 
       fetchSimulaciones();
       setSelectedSimulacion(null);
-    } catch (err) {
-      console.error("Error deleting simulación:", err);
+      toast.success("Simulación eliminada correctamente.");
+    } catch (err: any) {
+      toast.error(err.message || "Error al eliminar la simulación.");
     }
+  };
+
+  const handleDelete = (simulacion: SimulacionType) => {
+    toast.error(`¿Seguro que quieres eliminar la simulación de ${simulacion.cliente.nombres}?`, {
+      action: { label: 'Eliminar', onClick: () => performDelete(simulacion.id) },
+      cancel: { label: 'Cancelar' },
+      duration: 10000,
+    });
   };
 
   const handleExportToExcel = () => {
@@ -166,22 +176,14 @@ export function Simulaciones({ selectedSimulacion, setSelectedSimulacion, onEdit
                       </p>
                     </div>
                     
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className={`h-7 w-7 -mr-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive ${selectedSimulacion?.id === sim.id ? 'opacity-100' : ''}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción eliminará la simulación permanentemente.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(sim.id.toString())} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction></AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className={`h-7 w-7 -mr-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive ${selectedSimulacion?.id === sim.id ? 'opacity-100' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(sim); }}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 ))
               ) : <div className="text-center py-8 text-muted-foreground text-sm">No se encontraron resultados.</div>}

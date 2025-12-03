@@ -10,7 +10,7 @@
     import { toast } from "sonner";
 
     type Cliente = {
-      id?: string;
+  id: number;
       nombres: string;
       apellidos: string;
       tipoDocumento: 'DNI' | 'Carnet de Extranjería' | 'Pasaporte';
@@ -39,7 +39,6 @@
       const [editingClient, setEditingClient] = useState<Cliente | null>(null);
       const [errors, setErrors] = useState<Record<string, string>>({});
       const [searchTerm, setSearchTerm] = useState('');
-      const [clientToDelete, setClientToDelete] = useState<string | null>(null);
 
       const fetchClientes = async () => {
         setIsLoading(true);
@@ -101,24 +100,32 @@
         }
       };
 
-      const confirmDelete = async () => {
-        if (!clientToDelete) return;
-
+      const performDelete = async (clienteId: number) => {
         const token = sessionStorage.getItem('token');
         try {
-          const response = await fetch(`http://localhost:3001/api/clientes/${clientToDelete}`, {
+          const response = await fetch(`http://localhost:3001/api/clientes/${clienteId}`, {
             method: 'DELETE',
             headers: { 'x-auth-token': token || '' },
           });
-          if (!response.ok) throw new Error("Error al eliminar");
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.msg || "Error al eliminar el cliente.");
+          }
 
           fetchClientes();
           toast.success('Cliente eliminado correctamente.');
-        } catch (err) {
-          toast.error('Error al eliminar el cliente.');
-        } finally {
-          setClientToDelete(null);
+        } catch (err: any) {
+          toast.error(err.message || 'Ocurrió un error inesperado.');
         }
+      };
+
+      const handleDelete = (clienteId: number, clienteNombre: string) => {
+        toast.error(`¿Seguro que quieres eliminar a ${clienteNombre}?`, {
+          description: 'Esta acción también eliminará sus simulaciones asociadas.',
+          action: { label: 'Eliminar', onClick: () => performDelete(clienteId) },
+          cancel: { label: 'Cancelar' },
+          duration: 10000,
+        });
       };
 
       const handleOpenModal = (cliente: Cliente | null) => {
@@ -202,7 +209,7 @@
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setClientToDelete(cliente.id!)}
+                            onClick={() => handleDelete(cliente.id, `${cliente.nombres} ${cliente.apellidos}`)}
                           >
                             <TrashIcon className="h-4 w-4" />
                           </Button>
@@ -334,22 +341,7 @@
             </DialogContent>
           </Dialog>
 
-          <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Esto eliminará permanentemente al cliente y todas sus simulaciones asociadas.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setClientToDelete(null)}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {/* Se eliminó el AlertDialog para usar una confirmación simple y evitar el congelamiento */}
 
         </div>
       );
