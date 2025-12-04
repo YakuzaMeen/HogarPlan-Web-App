@@ -133,8 +133,8 @@ export function NuevaSimulacion({ onSimulacionCreated, simulacionToEdit }: Nueva
       cok,
     };
 
-    const url = simulacionToEdit ? `http://localhost:3001/api/simulaciones/${simulacionToEdit.id}` : 'http://localhost:3001/api/simulaciones';
-    const method = simulacionToEdit ? 'PUT' : 'POST';
+   const url = 'http://localhost:3001/api/simulaciones';
+       const method = 'POST';
 
     try {
       const response = await fetch(url, {

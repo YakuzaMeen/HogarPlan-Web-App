@@ -1,96 +1,210 @@
 const express = require('express');
 const router = express.Router();
-// Asumiendo que 'auth' es tu middleware de autenticación
 const auth = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-// Importación de las funciones financieras corregidas
-const { convertirTasaAMensual, generarPlanDePagos, calcularTCEA, calcularVAN } = require('../utils/financial');
+
+
+// ============================================================
+// GET: Obtener todas las simulaciones
+// ============================================================
+router.get('/', auth, async (req, res) => {
+  try {
+    const simulaciones = await prisma.simulacion.findMany({
+      orderBy: { id: 'desc' },
+      select: {
+        id: true,
+        valorInmueble: true,
+        montoPrestamo: true,
+        cuotaMensual: true,
+        tcea: true,
+        tir: true,
+        fechaCreacion: true,
+
+        cliente: {
+          select: {
+            nombres: true,
+            apellidos: true
+          }
+        },
+
+        inmueble: {
+          select: {
+            nombreProyecto: true,
+            moneda: true
+          }
+        }
+      }
+    });
+
+    res.json(simulaciones);
+  } catch (err) {
+    console.error("❌ ERROR GET /simulaciones:", err);
+    res.status(500).json({ msg: "Error al obtener simulaciones" });
+  }
+});
+
+// ============================================================
+// GET: Obtener simulación por ID
+// ============================================================
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const simulacion = await prisma.simulacion.findUnique({
+      where: { id },
+      include: {
+        cliente: true,
+        inmueble: true,
+      }
+    });
+
+    if (!simulacion) return res.status(404).json({ msg: "No encontrada" });
+
+    res.json(simulacion);
+  } catch (err) {
+    console.error("❌ ERROR GET /simulaciones/:id:", err);
+    res.status(500).json({ msg: "Error al obtener simulación" });
+  }
+});
+
+// ============================================================
+// DELETE: Eliminar simulación
+// ============================================================
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    await prisma.simulacion.delete({ where: { id } });
+
+    res.json({ msg: "Simulación eliminada correctamente" });
+  } catch (err) {
+    console.error("❌ ERROR DELETE /simulaciones:", err);
+    res.status(500).json({ msg: "Error al eliminar" });
+  }
+});
+
+
+ // ============================================================
+ // PUT: Actualizar una simulación existente
+ // ============================================================
+ router.put('/:id', auth, async (req, res) => {
+   try {
+     const id = parseInt(req.params.id);
+
+     const simulacionExistente = await prisma.simulacion.findUnique({ where: { id } });
+     if (!simulacionExistente || simulacionExistente.creadoPorId !== req.user.id) {
+       return res.status(404).json({ msg: 'Simulación no encontrada o no autorizada' });
+     }
+
+     const simulacionActualizada = await calcularYGuardarSimulacion(req.body, req.user.id, id);
+
+     // Devolvemos la simulación actualizada completa
+     res.json(simulacionActualizada);
+
+   } catch (err) {
+     console.error("❌ ERROR en PUT /simulaciones/:id:", err);
+     res.status(err.statusCode || 500).json({ msg: err.message || 'Error del servidor' });
+   }
+ });
+
+const {
+  convertirTasaAMensual,
+  generarPlanDePagos,
+  calcularTCEA,
+  calcularVAN
+} = require('../utils/financial');
 
 /**
- * Función central para calcular el plan de pagos, TCEA, TIR y VAN, y guardar/actualizar la simulación en la base de datos.
- * @param {object} datos - Parámetros de la simulación.
- * @param {number} usuarioId - ID del usuario creador.
- * @param {number | null} idSimulacion - ID de la simulación a actualizar (null si es nueva).
- * @returns {Promise<object>} La simulación creada o actualizada.
- * @throws {Error} Si el inmueble no es encontrado.
+ * Función central: calcula plan de pagos, TCEA, TIR, VAN y guarda/actualiza la simulación.
  */
 async function calcularYGuardarSimulacion(datos, usuarioId, idSimulacion = null) {
   const {
     clienteId, inmuebleId, montoPrestamo, plazoAnios, tipoTasa, tasaInteresAnual,
     capitalizacion = 'Mensual', seguroDesgravamen, seguroInmueble,
-    periodoGraciaTotalMeses, periodoGraciaParcialMeses, aplicaBonoTechoPropio, valorBono,
-    costesNotariales = 0, costesRegistrales = 0, tasacion = 0, portes = 0, cok = 5.0 // COK: Costo de Oportunidad de Capital
+    periodoGraciaTotalMeses, periodoGraciaParcialMeses,
+    aplicaBonoTechoPropio, valorBono,
+    costesNotariales = 0, costesRegistrales = 0, tasacion = 0, portes = 0,
+    cok = 5.0
   } = datos;
 
   const clienteIdInt = parseInt(clienteId);
   const inmuebleIdInt = parseInt(inmuebleId);
 
-  // 1. Obtener datos del inmueble
+  // === 1. Buscar inmueble ===
   const inmueble = await prisma.inmueble.findUnique({ where: { id: inmuebleIdInt } });
-  if (!inmueble) {
-    const error = new Error('Inmueble no encontrado');
-    error.statusCode = 404;
-    throw error;
-  }
+  if (!inmueble) throw new Error('Inmueble no encontrado');
 
-  // 2. Definición de variables financieras clave
-  const costosIniciales = costesNotariales + costesRegistrales + tasacion;
+  // === 2. Variables financieras ===
+    const costosIniciales =
+    (parseFloat(costesNotariales) || 0) +
+    (parseFloat(costesRegistrales) || 0) +
+    (parseFloat(tasacion) || 0);
 
-  // Desembolso Real: Dinero que se necesita para el activo después de aplicar el bono.
-  // Este es el flujo de caja inicial (CF0) para los cálculos de TIR/VAN.
-  const desembolsoReal = montoPrestamo - (aplicaBonoTechoPropio ? valorBono : 0);
+  
+  console.log("\n=================  🧮 INICIO CÁLCULO SIMULACIÓN  =================\n");
+  console.log("COSTOS_INICIALES =", costosIniciales);
 
-  // Monto Total Financiado: El desembolso real más los costos iniciales que el banco también financia.
-  // Este es el monto sobre el cual se calcula el plan de pagos (el principal a amortizar).
+    const desembolsoReal = (parseFloat(montoPrestamo) || 0) - (aplicaBonoTechoPropio ? (parseFloat(valorBono) || 0) : 0);
+  console.log("DESEMBOLSO_REAL =", desembolsoReal);
+
   const montoTotalFinanciado = desembolsoReal + costosIniciales;
 
-  // 3. Cálculos Financieros
+  // === 3. TEM ===
   const tem = convertirTasaAMensual(tasaInteresAnual, tipoTasa, capitalizacion);
+  console.log("TEM (Tasa Efectiva Mensual) =", tem);
 
+  // === 4. Plan de pagos ===
   const planDePagosCalculado = generarPlanDePagos({
-    montoPrestamo: montoTotalFinanciado, // El plan de pagos se calcula sobre el total financiado
+    montoPrestamo: montoTotalFinanciado,
     tem,
-    numeroCuotas: plazoAnios * 12,
-    seguroDesgravamenPorcentaje: seguroDesgravamen / 100,
-    seguroInmueblePorcentaje: seguroInmueble / 100,
-    periodoGraciaTotalMeses,
-    periodoGraciaParcialMeses,
+    numeroCuotas: (parseInt(plazoAnios) || 0) * 12,
+    seguroDesgravamenPorcentaje: (parseFloat(seguroDesgravamen) || 0) / 100,
+    seguroInmueblePorcentaje: (parseFloat(seguroInmueble) || 0) / 100,
+    periodoGraciaTotalMeses: parseInt(periodoGraciaTotalMeses) || 0,
+    periodoGraciaParcialMeses: parseInt(periodoGraciaParcialMeses) || 0,
     valorInmueble: inmueble.valor,
-    portes
+    portes: parseFloat(portes) || 0,
   });
 
-  // TCEA / TIR Cálculo
-  // CF0 para TCEA/TIR: El flujo de caja inicial es el Desembolso Real (montoPrestamo - bono),
-  // asumiendo que los costos iniciales están financiados y se pagan en las cuotas.
-  
-  // 1. Obtener la TIR Mensual real (en decimal) de los flujos de caja.
-  // Usamos: montoPrincipal (montoPrestamo) - costosIniciales (valorBono) = desembolsoReal (CF0)
-  // La TCEA se calcula sobre el dinero que realmente se necesita (desembolsoReal) y los costos que se pagan.
-  const tirMensualCalculada = calcularTCEA(
-    desembolsoReal,
-    planDePagosCalculado,
-    costosIniciales,
-    true // Indicamos a calcularTCEA que retorne la TIR mensual en decimal
-  );
+  console.log("PRIMERA CUOTA =", planDePagosCalculado[0]);
+  console.log("ÚLTIMA CUOTA =", planDePagosCalculado[planDePagosCalculado.length - 1]);
 
-  // 2. TCEA (Costo Efectivo Total Anual) es la TIR Mensual anualizada.
-  const tceaCalculada = (Math.pow(1 + tirMensualCalculada, 12) - 1) * 100;
-  
-  // 3. La TIR anualizada (para guardar en la BD) es la TCEA.
-  const tirAnualCalculada = tceaCalculada;
+  // === 5. TCEA / TIR ===
+  console.log("\n----- CÁLCULO TCEA / TIR -----");
 
-  // VAN
-  // El flujo para el VAN (y TCEA) usa el desembolso real que recibe/utiliza el cliente como CF0.
+  const tceaCalculada = calcularTCEA(desembolsoReal, planDePagosCalculado, costosIniciales);
+  console.log("TCEA_CALCULADA =", tceaCalculada);
+
+  // La TIR que nos interesa mostrar es la TIR periódica (mensual), expresada como porcentaje.
+  const tirMensual = calcularTCEA(desembolsoReal, planDePagosCalculado, costosIniciales, true);
+  console.log("TIR_MENSUAL (decimal) =", tirMensual);
+
+  // Guardamos la TIR mensual como porcentaje.
+  const tirPeriodoCalculada = tirMensual * 100;
+  console.log("TIR_PERIODO (%) =", tirPeriodoCalculada);
+
+  // === 6. VAN ===
+  console.log("\n----- CÁLCULO VAN -----");
+
   const cashFlowParaVAN = [desembolsoReal, ...planDePagosCalculado.map(p => -p.cuota)];
-  // Tasa de descuento mensual (COK anualizado)
+  console.log("CASH FLOWS PARA VAN =", cashFlowParaVAN);
+
   const cokMensual = Math.pow(1 + (cok / 100), 1 / 12) - 1;
+  console.log("COK_MENSUAL =", cokMensual);
+
   const vanCalculado = calcularVAN(cashFlowParaVAN, cokMensual);
+  console.log("VAN_CALCULADO =", vanCalculado);
 
-  // Cuota Promedio
-  const cuotaPromedio = planDePagosCalculado.reduce((acc, p) => acc + p.cuota, 0) / planDePagosCalculado.length;
+  // === 7. Cuota promedio ===
+  const cuotaPromedio =
+    planDePagosCalculado.reduce((acc, p) => acc + p.cuota, 0) /
+    planDePagosCalculado.length;
 
-  // 4. Estructura de Datos para Prisma
+  console.log("CUOTA_PROMEDIO =", cuotaPromedio);
+
+  // === 8. Datos para PRISMA ===
+  console.log("\n----- DATOS GUARDADOS EN BD -----");
   const datosSimulacion = {
     clienteId: clienteIdInt,
     inmuebleId: inmuebleIdInt,
@@ -114,104 +228,52 @@ async function calcularYGuardarSimulacion(datos, usuarioId, idSimulacion = null)
     portes,
     cok,
     cuotaMensual: parseFloat(cuotaPromedio.toFixed(2)),
-    planDePagos: planDePagosCalculado, // Prisma manejará el JSON
-    tcea: parseFloat(tceaCalculada.toFixed(2)),
-    van: parseFloat(vanCalculado.toFixed(2)),
-    tir: parseFloat(tirAnualCalculada.toFixed(2)), // Ahora es el mismo valor que TCEA
+    planDePagos: planDePagosCalculado,
+
+    tcea: parseFloat((isFinite(tceaCalculada) ? tceaCalculada : 0).toFixed(2)),
+    van: parseFloat((isFinite(vanCalculado) ? vanCalculado : 0).toFixed(2)),
+    tir: parseFloat((isFinite(tirPeriodoCalculada) ? tirPeriodoCalculada : 0).toFixed(4)), // Guardamos con más decimales
   };
 
-  // 5. Creación o Actualización en Prisma
+  console.log("DATOS_SIMULACIÓN =", datosSimulacion);
+  console.log("\n=================  🧮 FIN CÁLCULO SIMULACIÓN  =================\n");
+
+  // === 9. Crear o actualizar ===
   if (idSimulacion) {
-    return await prisma.simulacion.update({ where: { id: idSimulacion }, data: datosSimulacion });
+    return prisma.simulacion.update({
+      where: { id: idSimulacion },
+      data: datosSimulacion
+    });
   } else {
-    return await prisma.simulacion.create({ data: datosSimulacion });
+    return prisma.simulacion.create({ data: datosSimulacion });
   }
 }
 
-// =====================================================================
-// === Endpoints del Router ============================================
-// =====================================================================
+/* ============================================================================
+   ENDPOINTS
+============================================================================ */
 
-// POST: Crear nueva simulación
+// POST - Crear simulación
 router.post('/', auth, async (req, res) => {
   try {
+    console.log("📩 POST /simulaciones → Datos recibidos:", req.body);
+
     const nuevaSimulacion = await calcularYGuardarSimulacion(req.body, req.user.id);
 
-    // Buscar la simulación completa para incluir cliente e inmueble en la respuesta
     const simulacionCompleta = await prisma.simulacion.findUnique({
       where: { id: nuevaSimulacion.id },
       include: {
         cliente: { select: { id: true, nombres: true, apellidos: true } },
-        inmueble: { select: { id: true, nombreProyecto: true, valor: true, moneda: true } },
-      },
+        inmueble: { select: { id: true, nombreProyecto: true, valor: true, moneda: true } }
+      }
     });
+
+    console.log("📤 RESPUESTA FINAL ENVIADA AL FRONTEND =", simulacionCompleta);
 
     res.status(201).json(simulacionCompleta);
-
   } catch (err) {
-    console.error(err.message);
-    res.status(err.statusCode || 500).json({ msg: err.message || 'Error del servidor' });
-  }
-});
-
-// GET: Obtener todas las simulaciones del usuario
-router.get('/', auth, async (req, res) => {
-  try {
-    const simulaciones = await prisma.simulacion.findMany({
-      where: { creadoPorId: req.user.id },
-      include: {
-        cliente: { select: { id: true, nombres: true, apellidos: true } },
-        inmueble: { select: { id: true, nombreProyecto: true, valor: true, moneda: true } },
-      },
-      orderBy: { fechaCreacion: 'desc' },
-    });
-    res.json(simulaciones);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// DELETE: Eliminar una simulación
-router.delete('/:id', auth, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-
-    const simulacion = await prisma.simulacion.findUnique({ where: { id } });
-
-    if (!simulacion) {
-      return res.status(404).json({ msg: 'Simulación no encontrada' });
-    }
-
-    if (simulacion.creadoPorId !== req.user.id) {
-      return res.status(401).json({ msg: 'No autorizado' });
-    }
-
-    await prisma.simulacion.delete({ where: { id } });
-    res.json({ msg: 'Simulación eliminada' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// PUT: Actualizar una simulación existente
-router.put('/:id', auth, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-
-    const simulacionExistente = await prisma.simulacion.findUnique({ where: { id } });
-    if (!simulacionExistente || simulacionExistente.creadoPorId !== req.user.id) {
-      return res.status(404).json({ msg: 'Simulación no encontrada o no autorizada' });
-    }
-
-    const simulacionActualizada = await calcularYGuardarSimulacion(req.body, req.user.id, id);
-
-    res.json(simulacionActualizada);
-
-  } catch (err) {
-    console.error(err.message);
-    res.status(err.statusCode || 500).json({ msg: err.message || 'Error del servidor' });
+    console.error("❌ ERROR en POST /simulaciones:", err);
+    res.status(err.statusCode || 500).json({ msg: err.message });
   }
 });
 
