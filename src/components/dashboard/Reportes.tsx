@@ -67,7 +67,14 @@ export function Reportes() {
   const formatCurrency = (value: number, currency: string) => 
     new Intl.NumberFormat('es-PE', { style: 'currency', currency: currency === 'Soles' ? 'PEN' : 'USD' }).format(value);
   
-  const formatPercentage = (value: number) => `${value.toFixed(2)}%`;
+  const formatPercentage = (value: any) => {
+      const num = parseFloat(value);
+        if (isNaN(num)) {
+          return '0.00%'; // Si el valor no es un número, muestra 0.00%
+        }
+        return `${num.toFixed(2)}%`;
+  };
+
 
   return (
     <div className="space-y-6">

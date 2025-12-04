@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const prisma = require('../db');
+
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 router.post('/', auth, async (req, res) => {
   const { nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual } = req.body;
@@ -42,12 +44,12 @@ router.get('/', auth, async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   const { nombres, apellidos, tipoDocumento, numeroDocumento, email, telefono, direccion, ingresoMensual } = req.body;
   try {
-    const cliente = await prisma.cliente.findUnique({ where: { id: req.params.id } });
+    const cliente = await prisma.cliente.findUnique({ where: { id: parseInt(req.params.id) } });
     if (!cliente || cliente.creadoPorId !== req.user.id) {
       return res.status(401).json({ msg: 'No autorizado' });
     }
-    const clienteActualizado = await prisma.cliente.update({
-      where: { id: req.params.id },
+    const clienteActualizado = await prisma.cliente.update({ // Agregado el parseInt para el ID
+      where: { id: parseInt(req.params.id) },
       data: {
         nombres,
         apellidos,
